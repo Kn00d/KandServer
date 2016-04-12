@@ -9,18 +9,23 @@ import java.sql.*;
  */
 public class Database {
 
-    Connection conn;
-    Statement stmt;
+    Connection conn, backupConn;
+    Statement stmt, backupStmt;
 
     public Database() {}
 
     // JDBC Driver name and database URL
     static final String JDBC_DRIVER = "com.mysql.jdbc.Driver";
     static final String DB_URL = "jdbc:mysql://db-und.ida.liu.se/itkand_2016_2_1";
+    static final String BACKUP_DB_URL = "jdbc:mysql://db-und.ida.liu.se/itkand_2016_2_2";
 
     //  Database credentials
     static final String USER = "itkand_2016_2_1";
     static final String PASS = "itkand_2016_2_1_24ab";
+
+    // BackupDatabase credentials
+    static final String BACKUP_USER = "itkand_2016_2_2";
+    static final String BACKUP_PASS = "itkand_2016_2_2_9d2e";
 
 
 
@@ -56,13 +61,17 @@ public class Database {
     public void updateData(String query) throws SQLException {
         // 1. Connect to database
         connect();
+        connectBackup();
         stmt = conn.createStatement();
+        backupStmt = backupConn.createStatement();
 
         // 2. Perform update/insert/delete
         stmt.executeUpdate(query);
+        backupStmt.executeUpdate(query);
 
         // 3. Close database connection and statement
         closeConnection();
+        closeBackupConnection();
     }
 
     /**
@@ -118,6 +127,18 @@ public class Database {
         }
     }
 
+    private void connectBackup() throws SQLException{
+        try{
+            //Register JDBC Driver
+            Class.forName(JDBC_DRIVER);
+
+            //Open connection to Backup DB
+            backupConn = DriverManager.getConnection(BACKUP_DB_URL, BACKUP_USER, BACKUP_PASS);
+        } catch (ClassNotFoundException e){
+            e.printStackTrace();
+        }
+    }
+
     /**
      * Closes connection to Database
      */
@@ -126,5 +147,13 @@ public class Database {
             stmt.close();
         if (conn != null)
             conn.close();
+    }
+
+    private void closeBackupConnection() throws SQLException{
+        if(backupStmt != null)
+            backupStmt.close();
+
+        if(backupConn != null)
+            backupConn.close();
     }
 }
