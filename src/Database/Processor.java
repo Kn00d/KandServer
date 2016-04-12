@@ -1,7 +1,10 @@
 package Database;
+
+
+import CSDConnection.ClientInfo;
 import com.google.gson.*;
 
-import java.sql.SQLDataException;
+
 import java.sql.SQLException;
 
 /**
@@ -9,110 +12,82 @@ import java.sql.SQLException;
  */
 public class Processor {
     private static final int SQL_DUPLICATE_KEY_ERR_CODE = 1062;
+    private String jsonRequest;
+    private ClientInfo clientInfo;
     private Database database;
-    private JsonObject responseObject = null;
-    private String activity, action, id;
-    private JsonArray data;
-    private int requiredPermission;
+    private JsonObject responseObject;
+
+
     /**
      *
+     * @param clientInfo
+     * @param jsonRequest
      */
-    public Processor(String jsonRequest) {
+    public Processor(ClientInfo clientInfo, String jsonRequest) {
+//        this.jsonRequest = jsonRequest;
+        this.clientInfo = clientInfo;
         database = new Database();
         responseObject = new JsonObject();
-        //Create parser for JSON String
-        JsonParser parser = new JsonParser();
-
-        // Convert Json formatted string to one JsonObject
-        JsonObject object = (JsonObject) parser.parse(jsonRequest);
-//        System.out.println("Message received: " +  jsonRequest);
-        // Assign the required id, action and data parameters
-        activity = object.get("activity").getAsString().toLowerCase();
-        action = object.get("action").getAsString().toLowerCase();
-        requiredPermission = object.get("min_per").getAsInt();
-        data = (JsonArray) object.get("data");
+//        processMessage(jsonRequest);
     }
+
+
 
     /**
      * Process the message received from a client and makes
      * different request depending on what the message asks for
      */
-    public String processMessage() {
+    public String processMessage(String jsonRequest) {
+        //Create parser for JSON String
+        JsonParser parser = new JsonParser();
+        Gson gson = new Gson();
 
-        // Manipulating data requires that the user has permission to do so
-        // The exception is when the user logs in to the system with nfc
-        boolean permitted;
-        if(activity.equalsIgnoreCase("nfc")){
-            permitted = true;
+        // Convert JSON formatted string to one JsonObject
+        JsonObject object = (JsonObject) parser.parse(jsonRequest);
+//        JsonObject object = (JsonObject) gson.toJsonTree(jsonRequest);
+        System.out.println("Message received: " +  jsonRequest);
+
+
+        // Divide the id, action and data to different data types
+        String id = object.get("activity").getAsString().toLowerCase();
+        String action = object.get("action").getAsString().toLowerCase();
+        JsonArray data = (JsonArray) object.get("data");
+
+        // Calls different handlers depending on what id the client asks for
+        if (id.equalsIgnoreCase("map")) {
+            mapHandler(action, data);
+        } else if (id.equalsIgnoreCase("nfc")) {
+            NFCHandler(action, data);
+        } else if (id.equalsIgnoreCase("video")) {
+
         } else {
-            permitted = checkPermission(data);
+            System.out.println("ERROR! Wrong id asked in processor");
         }
 
-        String response;
-        if(permitted){
-            // Handle the matching activity the client refers to
-            if (activity.equalsIgnoreCase("map")) {
-                handleMap();
-            } else if (activity.equalsIgnoreCase("nfc")) {
-                handleNFC();
-            } else if (activity.equalsIgnoreCase("video")) {
-                handleVideo();
-            } else {
-                System.out.println("ERROR! Wrong activity asked in processor");
-            }
-        } else {
-            //User doesn't have the required permission level to manipulate the data
-            JsonArray data = new JsonArray();
-            JsonObject denied = new JsonObject();
-            denied.addProperty("permitted",false);
-            data.add(denied);
-            responseObject.add("data",data);
-        }
-        response = responseObject.toString();
+        String response = responseObject.toString();
+
         return response;
-    }
-
-    private boolean checkPermission(JsonArray data) {
-        boolean permitted = false;
-        JsonElement e = data.get(0);
-        JsonObject params = e.getAsJsonObject();
-        // Get the user's id
-        id = params.get("id").getAsString();
-
-        String query = "SELECT Permission FROM users WHERE NFCid=" + id;
-        try{
-            // Get data from database and save as JsonArray
-            JsonArray sqlResult = database.selectData(query);
-            JsonObject dataObject = (JsonObject) sqlResult.get(0);
-
-            // Grab the users permission level and compare to required permission level
-            int userPermission = dataObject.get("permission").getAsInt();
-            permitted = userPermission >= requiredPermission;
-        } catch (SQLException sqle) {
-            System.err.println("Error in your SQL query");
-            sqle.printStackTrace();
-        }
-        return permitted;
     }
 
     /**
      * Handles the NFC requests
      * If a "get" command, returns user info
+     * @param action
+     * @param data
      */
-    private void handleNFC() {
+    private void NFCHandler(String action, JsonArray data) {
         if (action.equalsIgnoreCase("get")) {
             // Gets first JsonObject from the array containing the scanned NFC id
             // according to {"NFCid":"..some number"}
             JsonObject dataObj = (JsonObject) data.get(0);
 
-            // Get the user's id
-            int id = dataObj.get("NFCid").getAsInt();
-
+            //
+            int id = dataObj.get("NFCid").getAsInt(); // Select the NFC id
             String query = "SELECT Name, NFCid FROM users WHERE EXISTS (SELECT * FROM users WHERE NFCid=\'" + id + "\') AND NFCid =\'"  + id + "\'";
             try {
                 // Get data from database and save as JsonArray
                 JsonArray sqlResult = database.selectData(query);
-//                System.out.println("DATABASE ANSWER> " + sqlResult);
+                System.out.println("DATABASE ANSWER> " + sqlResult);
                 JsonObject dataObject;
 
                 // If the result from the database in the empty we user does not exists
@@ -139,8 +114,10 @@ public class Processor {
      * Handles the Map requests.
      * If it's a get action we return all events to the map
      * If it's a add action we add the new events to the database
+     * @param action  server action to be performed "get", "add" or "delete"
+     * @param data  data to be added or deleted
      */
-    private void handleMap() {
+    private void mapHandler(String action, JsonArray data) {
         if (action.equalsIgnoreCase("get")) {
             String query = "SELECT * FROM event";
             try {
@@ -162,7 +139,7 @@ public class Processor {
                 lon = obj.get("lon").getAsString();
                 event = obj.get("event").getAsString();
                 query = "INSERT INTO event (lat, lon, event) VALUES ("
-                        + lat + "," + lon + "," + "'"+event+ "'"+ ")";
+                        + lat + "," + lon + "," + event + ")";
                 try {
                     // try to insert, if we have duplicate coordinates in the db we update the row instead
                     database.updateData(query);
@@ -182,37 +159,8 @@ public class Processor {
                 }
             }
         } else if (action.equalsIgnoreCase("delete")) {
-            String lat, lon, query;
 
-            // Loop through
-            for (JsonElement o: data) {
-                JsonObject obj = o.getAsJsonObject();
-                lat = obj.get("lat").getAsString();
-                lon = obj.get("lon").getAsString();
-                query = "DELETE FROM event WHERE (lat,lon) = ("
-                        + lat + "," + lon + ")";
-                try {
-                    // try to insert, if we have duplicate coordinates in the db we update the row instead
-                    database.updateData(query);
-                } catch (SQLException e) {
-                    // If we have duplicate primary keys
-//                    if(e.getErrorCode() == SQL_DUPLICATE_KEY_ERR_CODE) {
-//                        query = "UPDATE event SET event = \"" + event + "\" WHERE (lat, lon) = (" + lat + "," + lon + ")";
-//                        try {
-//                            // Update instead
-//                            database.updateData(query);
-//                        } catch (SQLException e1) {
-//                            // If the update fails
-//                            e1.printStackTrace();
-//                        }
-//                    } else
-                        e.printStackTrace();
-                }
-            }
         }
-    }
-    private void handleVideo(){
-
     }
 
 

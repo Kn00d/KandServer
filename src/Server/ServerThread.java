@@ -40,8 +40,8 @@ public class ServerThread extends Thread {
                 }
                 System.out.println(socket.getInetAddress().getHostAddress() + "> " + clientMessage);
                 if (!clientMessage.equalsIgnoreCase("bye")) {
-                    processor = new Processor(clientMessage);
-                    String reply = processor.processMessage();
+                    processor = new Processor(clientInfo, clientMessage);
+                    String reply = processor.processMessage(clientMessage);
                     System.out.println("Send to client> " + reply);
                     out.println(reply);
                     out.flush();

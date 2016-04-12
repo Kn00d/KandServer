@@ -1,55 +1,72 @@
 package Connection;
-
 import java.io.*;
 import java.net.*;
-
-/**
- * Created by dennisdufback on 2016-03-16.
- */
-public class Requester {
-
-//        private static final String HOST = "localhost";
-    private static final String HOST = "2016-4.itkand.ida.liu.se";
-    private static final int PORT = 9001;
-
-    public static void main(String[] args){
-
-        Socket s = null;
-        try {
-            s = new Socket(HOST, PORT);
-        } catch (UnknownHostException uhe) {
-            System.out.println("Cant connect to server at 9000. Make sure it is running.");
-            s = null;
-            uhe.printStackTrace();
-        } catch (IOException e){
-            e.printStackTrace();
-        }
-
-        if (s == null) {
-            System.exit(-1);
-        }
-        BufferedReader in = null;
-        PrintWriter out = null;
-
-        try {
-            in = new BufferedReader(new InputStreamReader(s.getInputStream()));
-            out = new PrintWriter(new OutputStreamWriter(s.getOutputStream()));
-
-            out.write("What's up!");
+public class Requester{
+    Socket requestSocket;
+    ObjectOutputStream out;
+    ObjectInputStream in;
+    String message;
+    Requester(){}
+    void run()
+    {
+        try{
+            //1. creating a socket to connect to the server
+//            requestSocket = new Socket("127.0.1.1", 9000);
+            requestSocket = new Socket("localhost", 9000);
+            System.out.println("Connected to localhost in port " + requestSocket.getPort());
+            System.out.println("Local client port: " + requestSocket.getLocalPort());
+            //2. get Input and Output streams
+            out = new ObjectOutputStream(requestSocket.getOutputStream());
             out.flush();
-            System.out.println(in.readLine());
-            out.flush();
-        } catch (IOException ioe) {
-            System.out.println("Exception during communication. Server probably closed connection.");
-        } finally {
-            try {
-                out.close();
+            in = new ObjectInputStream(requestSocket.getInputStream());
+            //3: Communicating with the server
+            do{
+                try{
+                    message = (String)in.readObject();
+                    System.out.println("server>" + message);
+                    sendMessage("SELECT * FROM Test");
+                    String jsonMsg = (String) in.readObject();
+                    System.out.println("jsonArray = " + jsonMsg);
+                    message = "bye";
+                    sendMessage(message);
+                }
+                catch(ClassNotFoundException classNot){
+                    System.err.println("data received in unknown format");
+                }
+            }while(!message.equals("bye"));
+        }
+        catch(UnknownHostException unknownHost){
+            System.err.println("You are trying to connect to an unknown host!");
+        }
+        catch(IOException ioException){
+            ioException.printStackTrace();
+        }
+        finally{
+            //4: Closing connection
+            try{
                 in.close();
-                s.close();
-            } catch (IOException e) {
-                e.printStackTrace();
                 out.close();
+                requestSocket.close();
+            }
+            catch(IOException ioException){
+                ioException.printStackTrace();
             }
         }
+    }
+    void sendMessage(String msg)
+    {
+        try{
+            out.writeObject(msg);
+            out.flush();
+            System.out.println("client>" + msg);
+        }
+        catch(IOException ioException){
+            ioException.printStackTrace();
+        }
+    }
+    public static void main(String args[])
+    {
+        Requester client = new Requester();
+        client.run();
     }
 }
