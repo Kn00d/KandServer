@@ -15,15 +15,17 @@ public class ClientSender extends Thread
     private ServerDispatcher mServerDispatcher;
     private ClientInfo mClientInfo;
     private PrintWriter mOut;
+    private String message;
     //
-    private Database db;
+   // private Database db;
     //
 
-    public ClientSender(ClientInfo aClientInfo, ServerDispatcher aServerDispatcher)
+    public ClientSender(ClientInfo aClientInfo, String message)
             throws IOException
     {
         mClientInfo = aClientInfo;
-        mServerDispatcher = aServerDispatcher;
+        this.message=message;
+        //mServerDispatcher = aServerDispatcher;
         Socket socket = aClientInfo.mSocket;
         mOut = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
     }
@@ -44,6 +46,7 @@ public class ClientSender extends Thread
      * is empty, falls in sleep until notified for message arrival by sendMessage
      * method.
      */
+
     private synchronized String getNextMessageFromQueue() throws InterruptedException
     {
         while(messageQueue.size()==0){
@@ -69,16 +72,16 @@ public class ClientSender extends Thread
      */
     public void run()
     {
-        db = new Database();
-        JsonArray jsonArray;
+        //db = new Database();
+        //JsonArray jsonArray;
         try {
-            while (!isInterrupted()) {
-                String message = getNextMessageFromQueue();
+            //while (!isInterrupted()) {
+                //String message = getNextMessageFromQueue();
                 sendMessageToClient(message);
                 /**
                  * DATABASKOD
                  */
-            if(mServerDispatcher.action.equalsIgnoreCase("update")){
+            /*if(mServerDispatcher.action.equalsIgnoreCase("update")){
                jsonArray = db.selectData(message);
                 sendJSON(jsonArray);
             } else if(mServerDispatcher.action.equalsIgnoreCase("delete")){
@@ -88,14 +91,14 @@ public class ClientSender extends Thread
             } else {
 
                 System.out.println(mClientInfo.mSocket.getInetAddress() + " : "+mClientInfo.mSocket.getPort()+ " sent request: " + message);
-            }
-            }
+            }*/
+            //}
         } catch (Exception e) {
             // Communication problem
         }
         // Communication is broken. Interrupt both listener and sender threads
         mClientInfo.mClientListener.interrupt();
-        mServerDispatcher.deleteClient(mClientInfo);
+       // mServerDispatcher.deleteClient(mClientInfo);
     }
 
     void sendJSON(JsonArray jsonArray) {

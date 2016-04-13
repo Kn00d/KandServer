@@ -43,8 +43,9 @@ public class Server {
                 clientInfo.mSocket = socket;
                 ClientListener clientListener =
                         new ClientListener(clientInfo, serverDispatcher);
+                String message = "message";
                 ClientSender clientSender =
-                        new ClientSender(clientInfo, serverDispatcher);
+                        new ClientSender(clientInfo, message);
                 clientInfo.mClientListener = clientListener;
                 clientInfo.mClientSender = clientSender;
                 clientListener.start();
