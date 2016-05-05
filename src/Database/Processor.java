@@ -59,6 +59,9 @@ public class Processor {
                 handleVideo();
             } else if (activity.equalsIgnoreCase("contact")) {
                 handleContacts();
+            } else if (activity.equalsIgnoreCase("hanlevote")){
+                    handelVote();
+                }
             } else {
                 System.out.println("ERROR! Wrong activity asked in processor");
             }
